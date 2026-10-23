@@ -21,6 +21,7 @@ export function createTripCapability(root: string): Capability {
       'Do not create other files, do not run shell commands, and do not edit application source.',
       'The JSON shape is: id, title, travelers, currency ("JPY"), days.',
       'Each day has date (YYYY-MM-DD), title, and stops. Each stop has id, time (HH:mm), place, kind (sight|meal|onsen|stay|shop|transfer), lat, lng, notes, transport (car|train|bus|walk|ferry|ropeway|flight), cost.',
+      'Do not add fields outside this shape; the board drops unknown fields the next time it saves.',
       'Keep the existing stop ids stable. Give every new stop a unique id.',
       'If a stop id is selected, change only that stop and leave every other stop identical.',
       'Supply lat and lng for every new stop (WGS84, from your own knowledge).',
