@@ -16,7 +16,8 @@
     "typecheck": "tsc --noEmit",
     "test": "pnpm prepare:agent && vitest run",
     "test:e2e": "pnpm prepare:agent && playwright test",
-    "test:all": "pnpm test && pnpm test:e2e"
+    "test:all": "pnpm test && pnpm test:e2e",
+    "shots": "SHOTS=1 pnpm test:e2e docs-shots"
   },
   "dependencies": {
     "@agent-panel/core": "workspace:*",

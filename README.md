@@ -1,28 +1,41 @@
-# 旅遊行程板
+# 旅遊行程板：agent-panel 示範
 
-把一趟旅行排成一天一條時間軸，旁邊是地圖。每張行程卡有時間、地點、備註、交通方式和費用，可以直接改，也可以拖到別的時間或別的日子。行程存在 `data/trips/*.json`。
+這個 repo 示範 [agent-panel](https://github.com/Jacky97s/agent-panel) 能替一個普通的 web app 加上什麼。app 本身是旅遊行程板：一天一條時間軸，旁邊是地圖。agent-panel 給它三樣東西：
 
-右上角的「行程助理」會打開代理面板。面板用 [agent-panel](https://github.com/Jacky97s/agent-panel) 接上你本機的 Claude Code 或 Codex，花的是你自己的訂閱。沒有安裝任何代理時，內建的示範 peer 一樣能排行程。
+- **嵌入在 app 裡的代理。** 右上角的「行程助理」打開面板。你在看板上選的那一天或那張卡片，會跟著訊息一起送給代理。代理寫入行程檔後，看板和地圖馬上更新，不必重新整理。
+- **用你自己的 Claude Code 或 Codex 訂閱。** 面板接上你本機已登入的 Claude Code 或 Codex。app 不需要 API key，也不付 API 費用。
+- **ACP。** app 和代理之間走 [Agent Client Protocol](https://agentclientprotocol.com)。寫入許可卡、提問卡、工具呼叫列都是 ACP 訊息，所以換一個代理不用改 app。
 
-![行程板](docs/board.png)
+下圖是實際接上 Claude Code。先選 11/16 的午餐卡片，再說「這裡換成溫泉」。面板上方寫明這次走 ACP、用你自己的訂閱。Claude Code 透過 ACP 回報它讀了行程檔（`Read`）、改了行程檔（`Edit`），只換掉選取的那一站。左邊的卡片和地圖上的 3 號標記已經是新的溫泉。
+
+![實際接上 Claude Code：選一張卡片，說「這裡換成溫泉」](docs/claude-code.png)
+
+沒有安裝任何代理時，內建的示範 peer 也是一個 ACP agent，一樣能排行程。它不呼叫模型，下面的截圖和所有測試都用它。
+
+## 走一遍示範
 
 內建範例是「東京・箱根・河口湖 家族自駕五日」：2026/11/13 到 11/17，五位大人。11/15 箱根到河口湖那天只放了晚上的旅館，留給代理來排。
 
-## 怎麼操作
-
-1. 點上方的日期切換天數。地圖會框住那天的行程，紅色數字是順序。
+1. 點上方的日期切換天數。地圖會框住那天的行程，紅色數字是順序。靠得太近的站會併成一個標記，例如「2·3」。再點一次會選到下一站。
 2. 點一張卡片選取它，選取後可以直接改時間、地點、備註、交通方式和費用。按 Esc 取消選取。
 3. 拖曳卡片調整順序，拖到上方的日期就搬到那天。鍵盤用 Alt + ↑ / ↓。
-4. 按「行程助理」打開面板。面板預設是關著的，載入頁面時不會自己打開。
-5. 選 11/15，送出「11/15 從箱根到河口湖，不要太早出門，晚餐要坐著吃」。允許寫入後，那天的卡片和地圖標記會直接更新，不必重新整理。
+
+![行程板](docs/board.png)
+
+4. 按「行程助理」打開面板。面板預設是關著的。
+5. 選 11/15，送出「11/15 從箱根到河口湖，不要太早出門，晚餐要坐著吃」。面板下方的「已選：11/15 箱根 → 河口湖」就是這次會跟著訊息送出的上下文。代理寫檔前先發 ACP 的 `session/request_permission`，面板把它畫成寫入許可卡。
+
+![寫入許可卡：代理寫檔前先問](docs/permission.png)
+
+6. 按「允許寫入」。代理寫完，那天的卡片和地圖標記直接更新。
 
 ![代理排好 11/15](docs/agent-plan.png)
 
-6. 選一張卡片，送出「這裡換成溫泉」。代理只改這一張，其他卡片不動。
+7. 選一張卡片，送出「這裡換成溫泉」。選取的卡片 id 跟著訊息送出，代理只改這一張，其他卡片不動。
 
 ![只換選取的那一站](docs/onsen.png)
 
-7. 送出「幫我排 11/15」。需求不夠清楚，代理會先跳出提問卡，問要自駕還是搭電車、預算抓多少。
+8. 送出「幫我排 11/15」。需求不夠清楚，代理用 ACP form elicitation 發問，面板把它畫成提問卡：要自駕還是搭電車、預算抓多少。
 
 ![提問卡](docs/question.png)
 
@@ -36,21 +49,13 @@
 | --- | --- |
 | Capability | `trip`，定義在 `server/capability.ts`：系統提示、`buildContext`、可寫入目錄、允許的工具 |
 | 選取即上下文 | 選到的那天或那張卡片，以 `day`、`stopId`、`selection` 送進 prompt。面板上的「已選：…」就是這次會送出的內容 |
-| 可寫入目錄 | 只有 `data/trips/`。agent 透過 ACP 的 `fs/read_text_file`、`fs/write_text_file` 碰到它以外的路徑時，框架會擋下 |
+| 可寫入目錄 | 只有 `data/trips/`。agent 透過 ACP 的 `fs/read_text_file`、`fs/write_text_file` 碰到它以外的路徑時，框架會擋下。Claude Code 不走這兩個方法，見[框架目前的限制](#框架目前的限制) |
 | 允許的工具 | 只有讀寫類工具名稱（`read`、`write`、`edit` 等），沒有 shell |
 | 提問卡 | 交通方式與預算。代理用 ACP form elicitation 發問 |
-| 寫入許可卡 | 示範 peer 每次寫檔前都會發 `session/request_permission` |
+| 寫入許可卡 | 示範 peer 每次寫檔前都會發 `session/request_permission`。按「拒絕」時，工具列標成失敗 |
 | 不互相覆蓋 | app 存檔時帶上讀到的版本。代理在這之間寫過檔，存檔會被拒絕，頁面改載入代理的版本。示範 peer 拿到寫入許可後也會重讀檔案再改 |
 | 即時更新 | 伺服器監看 `data/trips/`，用 Server-Sent Events（`/api/events`）通知頁面重讀。不管是 app、示範 peer，還是 Claude Code 自己的工具寫的，都會即時反映 |
-| 自己的訂閱 | `ACP_PRESETS['claude-code']` 與 `ACP_PRESETS.codex` |
-
-切到 Claude Code 或 Codex 時，面板上方會顯示「本次使用你自己的訂閱，額外 API 費用 $0」。
-
-![訂閱提示](docs/subscription.png)
-
-下圖是實際接上 Claude Code，選取一張午餐卡片後說「這裡換成溫泉」。Claude Code 讀了行程檔，只改了那一站，頁面隨即更新。
-
-![Claude Code 實際執行](docs/claude-code.png)
+| 自己的訂閱 | `ACP_PRESETS['claude-code']` 與 `ACP_PRESETS.codex`。面板上方寫明目前接的是哪個代理，以及是否用你自己的訂閱 |
 
 ### 座標從哪裡來
 
@@ -125,7 +130,9 @@ pnpm test:e2e
 
 `pnpm test` 是 Vitest 單元測試。除了行程資料、意圖判斷、排程範本之外，還會在同一個 process 裡啟動真正的 `createAgentServer`，讓示範 peer 跑完整的 ACP 回合：允許與拒絕寫入、提問卡、只換選取的那一站，以及寫到 `data/trips/` 外面時被擋下。
 
-`pnpm test:e2e` 用 Playwright 和示範 peer 開啟頁面，把資料複製到 `e2e/.data`，不會動到 `data/`。它檢查六件事：載入時面板關著、選日期後排出 11/15、只換選取的卡片、提問卡、鍵盤排序與跨日拖曳，以及在過期畫面上的修改不會蓋掉代理剛寫入的內容。
+`pnpm test:e2e` 用 Playwright 和示範 peer 開啟頁面，把資料複製到 `e2e/.data`，不會動到 `data/`。它檢查七件事：載入時面板關著且寫明接的是示範 peer、選日期後排出 11/15、只換選取的卡片、提問卡、鍵盤排序與跨日拖曳、在過期畫面上的修改不會蓋掉代理剛寫入的內容，以及快速切換日期時地圖會跟過去。
+
+`docs/` 裡的示範截圖由 `pnpm shots` 重拍（`e2e/docs-shots.spec.ts`，平常的 `pnpm test:e2e` 不跑它）。`docs/claude-code.png` 要真的接 Claude Code，只能手動拍。
 
 ## 框架目前的限制
 
@@ -137,8 +144,8 @@ pnpm test:e2e
 - 代理訊息沒有 `messageId` 時，框架用更新類型當 id，同一個 session 的後續回覆會接在第一則後面。示範 peer 每則訊息都帶唯一的 id。
 - context 只保留第一層的字串、數字與布林，物件會被丟掉。選取的卡片先轉成 JSON 字串再送。
 - 框架沒有「檔案已變更」事件，所以 app 自己監看 `data/trips/` 並用 SSE 通知頁面。
-- `allowedTools` 比對的是 permission request 的工具名稱，但 ACP 的 tool call 不一定帶名稱，沒有名稱時一律會問使用者。實際接 Claude Code 時，它沒有發出寫入許可請求，直接寫了檔案。
-- 可寫入目錄只在 agent 走 ACP 的 `fs/read_text_file` 和 `fs/write_text_file` 時才檢查。agent 如果用自己的檔案工具直接寫磁碟，框架擋不住，只剩系統提示在約束它。Claude Code 那次寫入走的是哪條路，目前還沒驗證。
+- `allowedTools` 比對的是 permission request 的工具名稱，但 ACP 的 tool call 不一定帶名稱，沒有名稱時一律會問使用者。實際接 Claude Code 時，兩次都沒有發出寫入許可請求，直接寫了檔案。
+- 可寫入目錄只在 agent 走 ACP 的 `fs/read_text_file` 和 `fs/write_text_file` 時才檢查。agent 如果用自己的檔案工具直接寫磁碟，框架擋不住，只剩系統提示在約束它。Claude Code 就是這種情況：`@agentclientprotocol/claude-agent-acp` 0.94.0 雖然定義了 `writeTextFile`，但套件裡沒有任何地方呼叫它，`Edit` 直接寫磁碟。這是讀原始碼得到的結論，沒有在執行時追蹤。
 - 被可寫入目錄擋下的寫入，在 agent 端只看到 `Internal error`，看不出原因。
 
 ## 授權

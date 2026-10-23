@@ -5,6 +5,8 @@ const baseURL = `http://127.0.0.1:${port}`;
 
 export default defineConfig({
   testDir: 'e2e',
+  // The README screenshots are rewritten only on purpose, with `pnpm shots`.
+  testIgnore: process.env.SHOTS ? undefined : 'docs-shots.spec.ts',
   timeout: 60_000,
   fullyParallel: false,
   workers: 1,
