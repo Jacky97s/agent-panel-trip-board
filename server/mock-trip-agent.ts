@@ -43,8 +43,9 @@ export function createTripAgent(): AgentApp {
           await say(ctx, sessionId, `找不到景點 ${intent.stopId}，沒有改動。`);
           return { stopReason: 'end_turn' as const };
         }
-        if (!(await writeTrip(ctx, sessionId, file, next))) return { stopReason: 'cancelled' as const };
-        const place = findStop(next, intent.stopId)?.stop.place ?? '';
+        const written = await writeTrip(ctx, sessionId, file, next.id, (fresh) => replaceWithOnsen(fresh, intent.stopId));
+        if (!written) return { stopReason: 'cancelled' as const };
+        const place = findStop(written, intent.stopId)?.stop.place ?? '';
         await say(ctx, sessionId, `只把這一站換成「${place}」，其他景點都沒動。`);
         return { stopReason: 'end_turn' as const };
       }
@@ -69,8 +70,10 @@ export function createTripAgent(): AgentApp {
           await say(ctx, sessionId, '這份行程裡沒有 11/15 這一天。');
           return { stopReason: 'end_turn' as const };
         }
-        if (!(await writeTrip(ctx, sessionId, file, next))) return { stopReason: 'cancelled' as const };
-        await say(ctx, sessionId, summary(next, prefs));
+        const date = intent.date;
+        const written = await writeTrip(ctx, sessionId, file, next.id, (fresh) => planDay(fresh, date, prefs));
+        if (!written) return { stopReason: 'cancelled' as const };
+        await say(ctx, sessionId, summary(written, prefs));
         return { stopReason: 'end_turn' as const };
       }
 
@@ -132,8 +135,18 @@ async function readTrip(ctx: Ctx, sessionId: string, file: string): Promise<Trip
   }
 }
 
-async function writeTrip(ctx: Ctx, sessionId: string, file: string, trip: Trip): Promise<boolean> {
-  const title = `寫入 data/trips/${trip.id}.json`;
+/**
+ * Asks before writing, then re-reads the file and re-applies `edit`, because the user may keep
+ * editing the board while the permission card waits.
+ */
+async function writeTrip(
+  ctx: Ctx,
+  sessionId: string,
+  file: string,
+  id: string,
+  edit: (trip: Trip) => Trip | null,
+): Promise<Trip | null> {
+  const title = `寫入 data/trips/${id}.json`;
   // The panel merges tool rows by id, so each write needs its own.
   const toolCallId = `write-trip-${randomUUID()}`;
   await ctx.client.notify(methods.client.session.update, {
@@ -149,7 +162,10 @@ async function writeTrip(ctx: Ctx, sessionId: string, file: string, trip: Trip):
     ],
   });
   const outcome = permission.outcome;
-  if (!(outcome.outcome === 'selected' && outcome.optionId === 'allow')) return false;
+  if (!(outcome.outcome === 'selected' && outcome.optionId === 'allow')) return null;
+  const fresh = await readTrip(ctx, sessionId, file);
+  const trip = fresh && edit(fresh);
+  if (!trip) return null;
   await ctx.client.request(methods.client.fs.writeTextFile, {
     sessionId,
     path: file,
@@ -159,7 +175,7 @@ async function writeTrip(ctx: Ctx, sessionId: string, file: string, trip: Trip):
     sessionId,
     update: { sessionUpdate: 'tool_call_update', toolCallId, status: 'completed' },
   });
-  return true;
+  return trip;
 }
 
 async function say(ctx: Ctx, sessionId: string, text: string) {

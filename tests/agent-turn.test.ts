@@ -1,4 +1,4 @@
-import { readFile, stat } from 'node:fs/promises';
+import { readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { type AgentApp, agent, methods } from '@agentclientprotocol/sdk';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -44,6 +44,26 @@ describe('trip mock agent over the real bridge', () => {
       const ids = events.filter((event) => event.type === 'text').map((event) => event.messageId);
       expect(ids).toHaveLength(2);
       expect(new Set(ids).size).toBe(2);
+    } finally {
+      await env.close();
+    }
+  });
+
+  it('keeps an edit the user saved while the write permission was pending', async () => {
+    const env = await start(createTripAgent());
+    try {
+      const events = await openEvents(env.base);
+      const id = await session(env.base);
+      await send(env.base, id, '幫我排 11/15，自駕', tripContext());
+      const permission = await waitFor(events, (event) => event.type === 'permission');
+      const edited = await read(env.tripFile);
+      edited.days[0]!.stops[0]!.cost = 12345;
+      await writeFile(env.tripFile, `${JSON.stringify(edited, null, 2)}\n`);
+      await respond(env.base, id, { requestId: permission.requestId, kind: 'permission', optionId: 'allow' });
+      await waitFor(events, (event) => event.type === 'result');
+      const next = await read(env.tripFile);
+      expect(next.days[0]?.stops[0]?.cost).toBe(12345);
+      expect(day(next, '2026-11-15').stops.length).toBeGreaterThan(1);
     } finally {
       await env.close();
     }
