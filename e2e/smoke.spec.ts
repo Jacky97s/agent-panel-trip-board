@@ -122,3 +122,21 @@ test('an edit made on a stale board does not overwrite what the agent wrote', as
   expect(stop('d4-chureito').notes).toBe('代理剛寫的備註');
   expect(stop('d4-oishi').cost).toBe(0);
 });
+
+test('the map follows a quick switch to another day', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.pin').first()).toBeVisible();
+  await page.getByRole('button', { name: /^11\/14 週六/ }).first().click();
+  await page.getByRole('button', { name: /^11\/15 週日/ }).first().click();
+  const map = await page.getByRole('region', { name: '地圖' }).boundingBox();
+  // The map fits the day's pins, so their outer box sits in the middle of the map.
+  const offCentre = () =>
+    page.locator('.pin').evaluateAll((pins) => {
+      const xs = pins.map((pin) => {
+        const box = pin.getBoundingClientRect();
+        return box.x + box.width / 2;
+      });
+      return (Math.min(...xs) + Math.max(...xs)) / 2;
+    });
+  await expect.poll(async () => Math.abs((await offCentre()) - (map!.x + map!.width / 2))).toBeLessThan(40);
+});
