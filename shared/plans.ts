@@ -9,7 +9,7 @@ export const PLAN_DATE = '2026-11-15';
 export const PLAN_TITLE = '箱根 → 河口湖';
 
 const MEAL_SCALE: Record<Budget, number> = { low: 0.6, mid: 1, high: 2 };
-const BUDGET_LABEL: Record<Budget, string> = { low: '省錢', mid: '適中', high: '不限' };
+export const BUDGET_LABEL: Record<Budget, string> = { low: '省錢', mid: '適中', high: '不限' };
 
 function meal(base: number, budget: Budget): number {
   return Math.round((base * MEAL_SCALE[budget]) / 1000) * 1000;

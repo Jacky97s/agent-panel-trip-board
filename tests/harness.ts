@@ -55,7 +55,7 @@ export async function start(app?: AgentApp) {
   };
 }
 
-export type Wire = { type: string; messageId?: string; requestId?: string; message?: string; stopReason?: string; fields?: unknown };
+export type Wire = { type: string; messageId?: string; requestId?: string; message?: string; stopReason?: string; status?: string; fields?: unknown };
 
 export async function openEvents(base: string): Promise<Wire[]> {
   const events: Wire[] = [];

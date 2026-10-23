@@ -79,6 +79,7 @@ describe('trip mock agent over the real bridge', () => {
       await respond(env.base, id, { requestId: permission.requestId, kind: 'permission', optionId: 'reject' });
       await waitFor(events, (event) => event.type === 'result');
       expect(day(await read(env.tripFile), '2026-11-15').stops).toHaveLength(1);
+      expect(events.filter((event) => event.type === 'tool').at(-1)?.status).toBe('failed');
     } finally {
       await env.close();
     }

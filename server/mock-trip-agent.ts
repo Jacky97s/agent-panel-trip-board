@@ -5,8 +5,8 @@ import { fileURLToPath } from 'node:url';
 import { type AgentApp, type AgentContext, agent, methods, ndJsonStream } from '@agentclientprotocol/sdk';
 import { detectIntent } from '../shared/intent.ts';
 import { replaceWithOnsen } from '../shared/onsen.ts';
-import { PLAN_DATE, type Budget, type PlanPrefs, planDay } from '../shared/plans.ts';
-import { type Trip, findStop, parseTrip } from '../shared/trip.ts';
+import { BUDGET_LABEL, PLAN_DATE, type Budget, type PlanPrefs, planDay } from '../shared/plans.ts';
+import { TRANSPORT_LABEL, type Trip, findStop, parseTrip } from '../shared/trip.ts';
 
 type Ctx = { client: AgentContext };
 
@@ -22,64 +22,50 @@ export function createTripAgent(): AgentApp {
     .onRequest(methods.agent.session.new, async () => ({ sessionId: Math.random().toString(16).slice(2, 14) }))
     .onNotification(methods.agent.session.cancel, async () => {})
     .onRequest(methods.agent.session.prompt, async (ctx) => {
-      const text = ctx.params.prompt.map((block) => (block.type === 'text' ? block.text : '')).join('\n');
       const sessionId = ctx.params.sessionId;
-      const file = text.match(/trip path:[ \t]*([^\n]+)/)?.[1]?.trim();
-      if (!file) {
-        await say(ctx, sessionId, '沒有看到行程檔的路徑。');
-        return { stopReason: 'end_turn' as const };
-      }
-      const trip = await readTrip(ctx, sessionId, file);
-      if (!trip) {
-        await say(ctx, sessionId, '讀不到這份行程，或內容格式不正確。');
-        return { stopReason: 'end_turn' as const };
-      }
-      const year = Number(trip.days[0]?.date.slice(0, 4)) || 2026;
-      const intent = detectIntent(text, year);
-
-      if (intent.type === 'replace-selected') {
-        const next = replaceWithOnsen(trip, intent.stopId);
-        if (!next) {
-          await say(ctx, sessionId, `找不到景點 ${intent.stopId}，沒有改動。`);
-          return { stopReason: 'end_turn' as const };
-        }
-        const written = await writeTrip(ctx, sessionId, file, next.id, (fresh) => replaceWithOnsen(fresh, intent.stopId));
-        if (!written) return { stopReason: 'cancelled' as const };
-        const place = findStop(written, intent.stopId)?.stop.place ?? '';
-        await say(ctx, sessionId, `只把這一站換成「${place}」，其他景點都沒動。`);
-        return { stopReason: 'end_turn' as const };
-      }
-
-      if (intent.type === 'plan-day') {
-        if (!intent.date) {
-          await say(ctx, sessionId, '請告訴我要排哪一天，例如「幫我排 11/15」。');
-          return { stopReason: 'end_turn' as const };
-        }
-        if (intent.date !== PLAN_DATE) {
-          await say(ctx, sessionId, '示範代理目前只有 11/15（箱根 → 河口湖）的範本，這天我先不動。');
-          return { stopReason: 'end_turn' as const };
-        }
-        let prefs = intent.prefs;
-        if (intent.ask) {
-          const answers = await askBrief(ctx, sessionId);
-          if (!answers) return { stopReason: 'cancelled' as const };
-          prefs = { ...prefs, ...answers };
-        }
-        const next = planDay(trip, intent.date, prefs);
-        if (!next) {
-          await say(ctx, sessionId, '這份行程裡沒有 11/15 這一天。');
-          return { stopReason: 'end_turn' as const };
-        }
-        const date = intent.date;
-        const written = await writeTrip(ctx, sessionId, file, next.id, (fresh) => planDay(fresh, date, prefs));
-        if (!written) return { stopReason: 'cancelled' as const };
-        await say(ctx, sessionId, summary(written, prefs));
-        return { stopReason: 'end_turn' as const };
-      }
-
-      await say(ctx, sessionId, HELP);
+      const text = ctx.params.prompt.map((block) => (block.type === 'text' ? block.text : '')).join('\n');
+      const reply = await answer(ctx, sessionId, text);
+      if (reply === null) return { stopReason: 'cancelled' as const };
+      await say(ctx, sessionId, reply);
       return { stopReason: 'end_turn' as const };
     });
+}
+
+/** Runs one prompt and returns the closing message, or null when the user declined a card. */
+async function answer(ctx: Ctx, sessionId: string, text: string): Promise<string | null> {
+  const file = text.match(/trip path:[ \t]*([^\n]+)/)?.[1]?.trim();
+  if (!file) return '沒有看到行程檔的路徑。';
+  const trip = await readTrip(ctx, sessionId, file);
+  if (!trip) return '讀不到這份行程，或內容格式不正確。';
+  const year = Number(trip.days[0]?.date.slice(0, 4)) || 2026;
+  const intent = detectIntent(text, year);
+
+  if (intent.type === 'replace-selected') {
+    const next = replaceWithOnsen(trip, intent.stopId);
+    if (!next) return `找不到景點 ${intent.stopId}，沒有改動。`;
+    const written = await writeTrip(ctx, sessionId, file, next.id, (fresh) => replaceWithOnsen(fresh, intent.stopId));
+    if (!written) return null;
+    return `只把這一站換成「${findStop(written, intent.stopId)?.stop.place ?? ''}」，其他景點都沒動。`;
+  }
+
+  if (intent.type === 'plan-day') {
+    const date = intent.date;
+    if (!date) return '請告訴我要排哪一天，例如「幫我排 11/15」。';
+    if (date !== PLAN_DATE) return '示範代理目前只有 11/15（箱根 → 河口湖）的範本，這天我先不動。';
+    let prefs = intent.prefs;
+    if (intent.ask) {
+      const answers = await askBrief(ctx, sessionId);
+      if (!answers) return null;
+      prefs = { ...prefs, ...answers };
+    }
+    const next = planDay(trip, date, prefs);
+    if (!next) return '這份行程裡沒有 11/15 這一天。';
+    const written = await writeTrip(ctx, sessionId, file, next.id, (fresh) => planDay(fresh, date, prefs));
+    if (!written) return null;
+    return summary(written, prefs);
+  }
+
+  return HELP;
 }
 
 function summary(trip: Trip, prefs: Partial<PlanPrefs>): string {
@@ -101,19 +87,12 @@ async function askBrief(ctx: Ctx, sessionId: string): Promise<{ transport: 'car'
         transport: {
           type: 'string',
           title: '交通',
-          oneOf: [
-            { const: 'car', title: '自駕' },
-            { const: 'train', title: '電車' },
-          ],
+          oneOf: (['car', 'train'] as const).map((value) => ({ const: value, title: TRANSPORT_LABEL[value] })),
         },
         budget: {
           type: 'string',
           title: '預算',
-          oneOf: [
-            { const: 'low', title: '省錢' },
-            { const: 'mid', title: '適中' },
-            { const: 'high', title: '不限' },
-          ],
+          oneOf: Object.entries(BUDGET_LABEL).map(([value, title]) => ({ const: value, title })),
         },
       },
     },
@@ -162,10 +141,16 @@ async function writeTrip(
     ],
   });
   const outcome = permission.outcome;
-  if (!(outcome.outcome === 'selected' && outcome.optionId === 'allow')) return null;
-  const fresh = await readTrip(ctx, sessionId, file);
+  const allowed = outcome.outcome === 'selected' && outcome.optionId === 'allow';
+  const fresh = allowed ? await readTrip(ctx, sessionId, file) : null;
   const trip = fresh && edit(fresh);
-  if (!trip) return null;
+  if (!trip) {
+    await ctx.client.notify(methods.client.session.update, {
+      sessionId,
+      update: { sessionUpdate: 'tool_call_update', toolCallId, status: 'failed' },
+    });
+    return null;
+  }
   await ctx.client.request(methods.client.fs.writeTextFile, {
     sessionId,
     path: file,
