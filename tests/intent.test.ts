@@ -9,6 +9,7 @@ describe('detectIntent', () => {
     ['這裡換成溫泉', { stop: 'd2-gora' }, { type: 'replace-selected', stopId: 'd2-gora' }],
     ['幫我排 11/15', {}, { type: 'plan-day', date: '2026-11-15', prefs: {}, ask: true }],
     ['11月15日 規劃行程', {}, { type: 'plan-day', date: '2026-11-15', prefs: {}, ask: true }],
+    ['幫我排 2026/11/15', {}, { type: 'plan-day', date: '2026-11-15', prefs: {}, ask: true }],
     ['幫我排', { day: '2026-11-15' }, { type: 'plan-day', date: '2026-11-15', prefs: {}, ask: true }],
     ['幫我排 11/15，自駕', {}, { type: 'plan-day', date: '2026-11-15', prefs: { transport: 'car' }, ask: false }],
     ['11/15 從箱根到河口湖，搭電車，省錢', {}, { type: 'plan-day', date: '2026-11-15', prefs: { transport: 'train', budget: 'low' }, ask: false }],

@@ -1,4 +1,5 @@
 import type { PlanPrefs } from './plans.ts';
+import { DATE } from './trip.ts';
 
 export type Intent =
   | { type: 'replace-selected'; stopId: string }
@@ -13,7 +14,7 @@ const LATE = /不要太早|晚點出門|晚點出發|睡飽/;
 const SEATED = /坐著吃|好好吃|餐廳/;
 const LOW = /省錢|便宜/;
 const HIGH = /不限|高級|豪華/;
-const TEXT_DATE = /(\d{1,2})\s*(?:\/|月)\s*(\d{1,2})\s*日?/;
+const TEXT_DATE = /(?<!\d)(\d{1,2})\s*(?:\/|月)\s*(\d{1,2})\s*日?/;
 
 export function userText(prompt: string): string {
   const marker = '</agent-panel-capability>';
@@ -40,7 +41,7 @@ export function detectIntent(prompt: string, year: number): Intent {
   const selectedDay = contextValue(prompt, 'selected day');
   const date = fromText
     ? isoDate(year, Number(fromText[1]), Number(fromText[2]))
-    : /^\d{4}-\d{2}-\d{2}$/.test(selectedDay)
+    : DATE.test(selectedDay)
       ? selectedDay
       : null;
 

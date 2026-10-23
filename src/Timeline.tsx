@@ -5,6 +5,7 @@ import {
   KIND_LABEL,
   moveStop,
   type Stop,
+  TIME,
   TRANSPORT_LABEL,
   TRANSPORTS,
   type Transport,
@@ -280,7 +281,7 @@ function StopEditor({
           onChange={(event) => setTime(event.target.value)}
           onKeyDown={blurOnEnter}
           onBlur={() => {
-            if (/^([01]\d|2[0-3]):[0-5]\d$/.test(time) && time !== stop.time) onPatch({ time });
+            if (TIME.test(time) && time !== stop.time) onPatch({ time });
             else setTime(stop.time);
           }}
         />
