@@ -1,0 +1,61 @@
+{
+  "id": "japan-family-2026",
+  "title": "東京・箱根・河口湖 家族自駕五日",
+  "travelers": 5,
+  "currency": "JPY",
+  "days": [
+    {
+      "date": "2026-11-13",
+      "title": "抵達東京",
+      "stops": [
+        { "id": "d1-haneda", "time": "09:40", "place": "羽田機場 第3航廈", "kind": "transfer", "lat": 35.5494, "lng": 139.7798, "notes": "入境後買 5 張 Suica，京急轉山手線到新宿。", "transport": "flight", "cost": 10000 },
+        { "id": "d1-hotel", "time": "12:00", "place": "新宿 京王廣場飯店（寄放行李）", "kind": "stay", "lat": 35.6912, "lng": 139.6955, "notes": "15:00 才能入住，先寄行李。兩間三人房。", "transport": "train", "cost": 72000 },
+        { "id": "d1-lunch", "time": "12:30", "place": "新宿 思い出橫丁", "kind": "meal", "lat": 35.6930, "lng": 139.6995, "notes": "小店座位少，分兩桌坐。", "transport": "walk", "cost": 9000 },
+        { "id": "d1-gyoen", "time": "14:00", "place": "新宿御苑", "kind": "sight", "lat": 35.6852, "lng": 139.7101, "notes": "11 月中銀杏正黃。門票每人 ¥500。", "transport": "walk", "cost": 2500 },
+        { "id": "d1-asakusa", "time": "16:30", "place": "淺草寺・仲見世通", "kind": "sight", "lat": 35.7148, "lng": 139.7967, "notes": "傍晚人少一些，雷門拍全家照。", "transport": "train", "cost": 1500 },
+        { "id": "d1-dinner", "time": "18:30", "place": "淺草 今半 壽喜燒", "kind": "meal", "lat": 35.7120, "lng": 139.7935, "notes": "已訂 18:30 五位，包廂。", "transport": "walk", "cost": 55000 }
+      ]
+    },
+    {
+      "date": "2026-11-14",
+      "title": "新宿取車，開往箱根",
+      "stops": [
+        { "id": "d2-rental", "time": "09:00", "place": "Toyota Rent a Car 新宿站西口店", "kind": "transfer", "lat": 35.6909, "lng": 139.6971, "notes": "七人座 Alphard，含 ETC 卡與兒童座椅以外的全險。", "transport": "walk", "cost": 68000 },
+        { "id": "d2-ebina", "time": "10:15", "place": "海老名服務區（下行）", "kind": "meal", "lat": 35.4266, "lng": 139.3956, "notes": "早午餐，必買菠蘿麵包。", "transport": "car", "cost": 6000 },
+        { "id": "d2-odawara", "time": "11:30", "place": "小田原城", "kind": "sight", "lat": 35.2508, "lng": 139.1536, "notes": "天守閣門票每人 ¥510，停二之丸停車場。", "transport": "car", "cost": 3000 },
+        { "id": "d2-yumoto", "time": "13:30", "place": "箱根湯本 商店街", "kind": "meal", "lat": 35.2326, "lng": 139.1069, "notes": "午餐吃はつ花蕎麥麵，順便買溫泉饅頭。", "transport": "car", "cost": 8000 },
+        { "id": "d2-owakudani", "time": "15:30", "place": "大涌谷", "kind": "sight", "lat": 35.2441, "lng": 139.0193, "notes": "黑玉子一袋 5 顆。火山氣體濃時會封路，出發前看官網。", "transport": "car", "cost": 2500 },
+        { "id": "d2-gora", "time": "17:00", "place": "強羅 雪月花 溫泉旅館", "kind": "stay", "lat": 35.2494, "lng": 139.0498, "notes": "一泊二食，房間附露天風呂。停車免費。", "transport": "car", "cost": 160000 }
+      ]
+    },
+    {
+      "date": "2026-11-15",
+      "title": "箱根 → 河口湖",
+      "stops": [
+        { "id": "d3-ryokan", "time": "16:30", "place": "河口湖 湖山亭產屋 入住", "kind": "stay", "lat": 35.5091, "lng": 138.7682, "notes": "湖景房兩間，晚餐不含。", "transport": "car", "cost": 120000 }
+      ]
+    },
+    {
+      "date": "2026-11-16",
+      "title": "河口湖一日",
+      "stops": [
+        { "id": "d4-chureito", "time": "08:00", "place": "新倉山淺間公園 忠靈塔", "kind": "sight", "lat": 35.5011, "lng": 138.8018, "notes": "398 階，五重塔配富士山。早上逆光少。", "transport": "car", "cost": 0 },
+        { "id": "d4-oshino", "time": "10:00", "place": "忍野八海", "kind": "sight", "lat": 35.4600, "lng": 138.8329, "notes": "停村營停車場，每台 ¥500。", "transport": "car", "cost": 500 },
+        { "id": "d4-lunch", "time": "12:00", "place": "ほうとう不動 東戀路店", "kind": "meal", "lat": 35.5045, "lng": 138.7805, "notes": "餺飥鍋一人一鍋，份量大。", "transport": "car", "cost": 7000 },
+        { "id": "d4-oishi", "time": "13:30", "place": "大石公園", "kind": "sight", "lat": 35.5226, "lng": 138.7417, "notes": "紅葉迴廊在附近，11 月中有夜間點燈。", "transport": "car", "cost": 0 },
+        { "id": "d4-ropeway", "time": "15:30", "place": "河口湖天上山公園纜車", "kind": "sight", "lat": 35.5016, "lng": 138.7700, "notes": "來回每人 ¥1,000，看夕陽下的富士山。", "transport": "car", "cost": 5000 },
+        { "id": "d4-stay", "time": "18:30", "place": "湖山亭產屋（續住）", "kind": "stay", "lat": 35.5091, "lng": 138.7682, "notes": "第二晚，晚餐在附近居酒屋自理。", "transport": "car", "cost": 120000 }
+      ]
+    },
+    {
+      "date": "2026-11-17",
+      "title": "回東京，羽田起飛",
+      "stops": [
+        { "id": "d5-gotemba", "time": "10:00", "place": "御殿場 Premium Outlets", "kind": "shop", "lat": 35.3074, "lng": 138.9658, "notes": "開店就到，停 P1。", "transport": "car", "cost": 0 },
+        { "id": "d5-ashigara", "time": "13:00", "place": "足柄服務區（上行）", "kind": "meal", "lat": 35.3277, "lng": 138.9645, "notes": "午餐，加滿油前在這裡休息。", "transport": "car", "cost": 6000 },
+        { "id": "d5-return", "time": "15:30", "place": "Toyota Rent a Car 羽田機場店 還車", "kind": "transfer", "lat": 35.5560, "lng": 139.7550, "notes": "加滿油再還，接駁車到航廈約 10 分鐘。", "transport": "car", "cost": 9000 },
+        { "id": "d5-flight", "time": "17:30", "place": "羽田機場 第3航廈 出境", "kind": "transfer", "lat": 35.5494, "lng": 139.7798, "notes": "19:30 起飛，17:30 前報到。", "transport": "bus", "cost": 0 }
+      ]
+    }
+  ]
+}

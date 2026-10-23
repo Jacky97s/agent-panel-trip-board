@@ -1,0 +1,3 @@
+[submodule "vendor/agent-panel"]
+	path = vendor/agent-panel
+	url = https://github.com/Jacky97s/agent-panel.git
