@@ -5,12 +5,15 @@ import { cleanup, poll, start, TRIP_ID } from './harness.ts';
 
 afterEach(cleanup);
 
-const putTrip = (origin: string, id: string, trip: unknown) =>
+const putTrip = (origin: string, id: string, trip: unknown, base: string) =>
   fetch(`${origin}/api/trips/${id}`, {
     method: 'PUT',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ trip }),
+    body: JSON.stringify({ trip, base }),
   });
+
+const version = async (origin: string) =>
+  ((await (await fetch(`${origin}/api/trips/${TRIP_ID}`)).json()) as { version: string }).version;
 
 describe('trip api', () => {
   it('lists trips and returns a trip with no unresolved stops', async () => {
@@ -55,9 +58,11 @@ describe('trip api', () => {
       await writeFile(`${env.root}/cache/geocode.json`, JSON.stringify({ [first!.place]: { lat: 1, lng: 2 }, [second!.place]: null }));
       const body = (await (await fetch(`${env.origin}/api/trips/${TRIP_ID}`)).json()) as {
         trip: { days: { stops: { id: string; lat?: number }[] }[] };
+        coords: Record<string, { lat: number; lng: number }>;
         unresolved: string[];
       };
-      expect(body.trip.days[0]!.stops[0]!.lat).toBe(1);
+      expect(body.trip.days[0]!.stops[0]!.lat).toBeUndefined();
+      expect(body.coords).toEqual({ [first!.id]: { lat: 1, lng: 2 } });
       expect(body.unresolved).toEqual([second!.id]);
       expect(JSON.parse(await readFile(env.tripFile, 'utf8')).days[0].stops[0].lat).toBeUndefined();
     } finally {
@@ -70,11 +75,44 @@ describe('trip api', () => {
     const env = await start();
     try {
       const good = parseTrip(JSON.parse(await readFile(env.tripFile, 'utf8')));
-      expect((await putTrip(env.origin, TRIP_ID, { ...good, days: 'nope' })).status).toBe(400);
-      expect((await putTrip(env.origin, TRIP_ID, { ...good, id: 'other' })).status).toBe(400);
-      expect((await putTrip(env.origin, '..%2Fescape', good)).status).toBe(400);
-      expect((await putTrip(env.origin, TRIP_ID, { ...good, title: 'renamed' })).status).toBe(200);
+      const base = await version(env.origin);
+      expect((await putTrip(env.origin, TRIP_ID, { ...good, days: 'nope' }, base)).status).toBe(400);
+      expect((await putTrip(env.origin, TRIP_ID, { ...good, id: 'other' }, base)).status).toBe(400);
+      expect((await putTrip(env.origin, '..%2Fescape', good, base)).status).toBe(400);
+      const saved = await putTrip(env.origin, TRIP_ID, { ...good, title: 'renamed' }, base);
+      expect(saved.status).toBe(200);
+      expect(((await saved.json()) as { version: string }).version).toBe(await version(env.origin));
       expect(JSON.parse(await readFile(env.tripFile, 'utf8')).title).toBe('renamed');
+    } finally {
+      await env.close();
+    }
+  });
+
+  it('refuses a save based on a version an agent has already replaced', async () => {
+    const env = await start();
+    try {
+      const good = parseTrip(JSON.parse(await readFile(env.tripFile, 'utf8')));
+      const base = await version(env.origin);
+      await writeFile(env.tripFile, `${JSON.stringify({ ...good, title: 'agent wrote this' }, null, 2)}\n`);
+      const response = await putTrip(env.origin, TRIP_ID, { ...good, title: 'stale edit' }, base);
+      expect(response.status).toBe(409);
+      expect(JSON.parse(await readFile(env.tripFile, 'utf8')).title).toBe('agent wrote this');
+    } finally {
+      await env.close();
+    }
+  });
+
+  it('keeps every save when two arrive at once', async () => {
+    const env = await start();
+    try {
+      const good = parseTrip(JSON.parse(await readFile(env.tripFile, 'utf8')));
+      const base = await version(env.origin);
+      const results = await Promise.all([
+        putTrip(env.origin, TRIP_ID, { ...good, title: 'first' }, base),
+        putTrip(env.origin, TRIP_ID, { ...good, title: 'second' }, base),
+      ]);
+      expect(results.map((response) => response.status).sort()).toEqual([200, 409]);
+      expect(['first', 'second']).toContain(JSON.parse(await readFile(env.tripFile, 'utf8')).title);
     } finally {
       await env.close();
     }

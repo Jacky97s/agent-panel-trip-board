@@ -9,7 +9,13 @@ const ENDPOINT = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit
 const USER_AGENT = 'agent-panel-trip-board/0.1 (+https://github.com/Jacky97s/agent-panel-trip-board)';
 const MIN_GAP_MS = 1000;
 
-export type Geocoder = { lookup(query: string): Promise<LatLng | null | undefined> };
+export type Geocoder = {
+  /** Cache only: `null` is a known miss, `undefined` means not looked up yet. */
+  cached(query: string): Promise<LatLng | null | undefined>;
+  lookup(query: string): Promise<LatLng | null | undefined>;
+};
+
+const RETRY_AFTER_MS = 60_000;
 
 /** Resolves a place to coordinates. `undefined` means unresolved right now (disabled, offline, or rate limited). */
 export function createGeocoder(root: string, fetchImpl: typeof fetch = fetch): Geocoder {
@@ -17,6 +23,8 @@ export function createGeocoder(root: string, fetchImpl: typeof fetch = fetch): G
   let cache: Promise<Cache> | undefined;
   let queue: Promise<unknown> = Promise.resolve();
   let lastRequest = 0;
+  const failedAt = new Map<string, number>();
+  const inFlight = new Map<string, Promise<LatLng | null | undefined>>();
 
   const load = () =>
     (cache ??= fs
@@ -44,20 +52,31 @@ export function createGeocoder(root: string, fetchImpl: typeof fetch = fetch): G
   }
 
   return {
+    async cached(query) {
+      const entries = await load();
+      return Object.hasOwn(entries, query) ? entries[query] : undefined;
+    },
     async lookup(query) {
       const entries = await load();
-      if (query in entries) return entries[query];
+      if (Object.hasOwn(entries, query)) return entries[query];
       if (process.env.TRIP_GEOCODE === 'off') return undefined;
+      if (Date.now() - (failedAt.get(query) ?? 0) < RETRY_AFTER_MS) return undefined;
+      const running = inFlight.get(query);
+      if (running) return running;
       const result = queue.then(async () => {
-        if (query in entries) return entries[query];
+        if (Object.hasOwn(entries, query)) return entries[query];
         const found = await fetchOne(query);
-        if (found === undefined) return undefined;
+        if (found === undefined) {
+          failedAt.set(query, Date.now());
+          return undefined;
+        }
         entries[query] = found;
         await fs.mkdir(path.dirname(file), { recursive: true });
         await fs.writeFile(file, `${JSON.stringify(entries, null, 2)}\n`);
         return found;
       });
-      queue = result.catch(() => undefined);
+      inFlight.set(query, result);
+      queue = result.catch(() => undefined).finally(() => inFlight.delete(query));
       return result;
     },
   };
