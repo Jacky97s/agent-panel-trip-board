@@ -118,6 +118,21 @@ describe('trip api', () => {
     }
   });
 
+  it('ignores an agent switch sent as a cross-site simple request', async () => {
+    const env = await start();
+    try {
+      const response = await fetch(`${env.origin}/api/agent`, {
+        method: 'POST',
+        headers: { 'content-type': 'text/plain' },
+        body: JSON.stringify({ agent: 'claude-code' }),
+      });
+      expect(response.status).toBe(415);
+      expect(await (await fetch(`${env.origin}/api/agent`)).json()).toEqual({ agent: 'mock' });
+    } finally {
+      await env.close();
+    }
+  });
+
   it('emits a trip event over SSE when the file changes', async () => {
     const env = await start();
     const controller = new AbortController();

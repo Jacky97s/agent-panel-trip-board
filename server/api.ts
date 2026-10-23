@@ -224,6 +224,10 @@ function json(res: ServerResponse, status: number, body: unknown) {
 }
 
 function readBody(req: IncomingMessage): Promise<Record<string, unknown>> {
+  // Another site can POST text/plain without a CORS preflight; requiring JSON makes the browser ask first.
+  if (!req.headers['content-type']?.startsWith('application/json')) {
+    return Promise.reject(new HttpError(415, 'expected application/json'));
+  }
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     let size = 0;
