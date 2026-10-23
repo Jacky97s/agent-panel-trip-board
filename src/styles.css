@@ -204,10 +204,12 @@ button:disabled {
 
 .day-button .day-title {
   font-size: 13px;
+  line-height: 1.35;
   color: var(--muted);
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
   max-width: 100%;
 }
 
@@ -571,8 +573,21 @@ button:disabled {
   color: var(--bg);
 }
 
-.row-text {
-  white-space: pre-wrap;
+.row-text p,
+.row-text ul {
+  margin: 0 0 10px;
+}
+
+.row-text ul {
+  padding-left: 1.2em;
+}
+
+.row-text li + li {
+  margin-top: 4px;
+}
+
+.row-text strong {
+  font-weight: 700;
 }
 
 .row-tool,

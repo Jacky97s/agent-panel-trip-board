@@ -1,6 +1,7 @@
 import { useAgentState, useCapability } from '@agent-panel/react';
 import { useEffect, useRef, useState } from 'react';
 import type { Stop, Trip } from '../shared/trip.ts';
+import { type Inline, parseAgentText } from './agent-text.ts';
 import type { Selection } from './App.tsx';
 import { dayLabel, shortDate } from './format.ts';
 
@@ -211,7 +212,7 @@ function TranscriptRow({
   onRespond: (requestId: string, answer: Record<string, unknown>, label: string) => Promise<void>;
 }) {
   if (item.kind === 'user') return <p className="row-user">{item.text}</p>;
-  if (item.kind === 'text') return <p className="row-text">{item.text}</p>;
+  if (item.kind === 'text') return <AgentText text={item.text} />;
   if (item.kind === 'tool')
     return (
       <p className="row-tool">
@@ -316,4 +317,35 @@ function QuestionCard({
       </button>
     </form>
   );
+}
+
+function AgentText({ text }: { text: string }) {
+  return (
+    <div className="row-text">
+      {parseAgentText(text).map((block, index) =>
+        block.kind === 'list' ? (
+          <ul key={index}>
+            {block.items.map((parts, row) => (
+              <li key={row}>
+                <Parts parts={parts} />
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p key={index}>
+            {block.lines.map((parts, row) => (
+              <span key={row}>
+                {row > 0 ? <br /> : null}
+                <Parts parts={parts} />
+              </span>
+            ))}
+          </p>
+        ),
+      )}
+    </div>
+  );
+}
+
+function Parts({ parts }: { parts: Inline[] }) {
+  return parts.map((part, index) => (part.strong ? <strong key={index}>{part.text}</strong> : part.text));
 }
