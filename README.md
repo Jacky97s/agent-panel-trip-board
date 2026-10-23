@@ -40,6 +40,7 @@
 | 允許的工具 | 只有讀寫類工具名稱（`read`、`write`、`edit` 等），沒有 shell |
 | 提問卡 | 交通方式與預算。代理用 ACP form elicitation 發問 |
 | 寫入許可卡 | 示範 peer 每次寫檔前都會發 `session/request_permission` |
+| 不互相覆蓋 | app 存檔時帶上讀到的版本。代理在這之間寫過檔，存檔會被拒絕，頁面改載入代理的版本。示範 peer 拿到寫入許可後也會重讀檔案再改 |
 | 即時更新 | 伺服器監看 `data/trips/`，用 Server-Sent Events（`/api/events`）通知頁面重讀。不管是 app、示範 peer，還是 Claude Code 自己的工具寫的，都會即時反映 |
 | 自己的訂閱 | `ACP_PRESETS['claude-code']` 與 `ACP_PRESETS.codex` |
 
@@ -53,7 +54,7 @@
 
 ### 座標從哪裡來
 
-代理新增地點時要自己附上經緯度。少了座標的地點，伺服器會用免費的 [Nominatim](https://nominatim.org/)（OpenStreetMap）查，每秒最多一次。查到或查不到都記在 `data/cache/geocode.json`，同一個地名不會再查第二次。設定 `TRIP_GEOCODE=off` 就完全不連網。查不到的卡片會標示「找不到座標」。
+代理新增地點時要自己附上經緯度。少了座標的地點，伺服器會用免費的 [Nominatim](https://nominatim.org/)（OpenStreetMap）查，每秒最多一次。查詢在背景進行，不會卡住頁面，查到後再透過 `/api/events` 通知頁面更新。查到或查不到都記在 `data/cache/geocode.json`，同一個地名不會再查第二次。這些座標只用來畫地圖，不會寫回行程檔。設定 `TRIP_GEOCODE=off` 就完全不連網。查不到的卡片會標示「找不到座標」。
 
 地圖圖磚來自 OpenStreetMap，不需要任何 API key。
 
@@ -124,7 +125,7 @@ pnpm test:e2e
 
 `pnpm test` 是 Vitest 單元測試。除了行程資料、意圖判斷、排程範本之外，還會在同一個 process 裡啟動真正的 `createAgentServer`，讓示範 peer 跑完整的 ACP 回合：允許與拒絕寫入、提問卡、只換選取的那一站，以及寫到 `data/trips/` 外面時被擋下。
 
-`pnpm test:e2e` 用 Playwright 和示範 peer 開啟頁面，把資料複製到 `e2e/.data`，不會動到 `data/`。它檢查五件事：載入時面板關著、選日期後排出 11/15、只換選取的卡片、提問卡、鍵盤排序與跨日拖曳。
+`pnpm test:e2e` 用 Playwright 和示範 peer 開啟頁面，把資料複製到 `e2e/.data`，不會動到 `data/`。它檢查六件事：載入時面板關著、選日期後排出 11/15、只換選取的卡片、提問卡、鍵盤排序與跨日拖曳，以及在過期畫面上的修改不會蓋掉代理剛寫入的內容。
 
 ## 框架目前的限制
 

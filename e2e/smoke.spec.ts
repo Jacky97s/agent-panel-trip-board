@@ -1,3 +1,5 @@
+import { readFile, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import { expect, type Page, test } from '@playwright/test';
 
 const dock = (page: Page) => page.getByRole('complementary', { name: '行程助理' });
@@ -97,4 +99,26 @@ test('reorders with the keyboard and drags a stop onto another day', async ({ pa
   await page.reload();
   await page.getByRole('button', { name: /^11\/14 週六/ }).first().click();
   await expect(page.locator('[data-stop-id="d1-asakusa"]')).toBeVisible();
+});
+
+test('an edit made on a stale board does not overwrite what the agent wrote', async ({ page }) => {
+  const file = path.resolve('e2e/.data/trips/japan-family-2026.json');
+  await page.route('**/api/events', (route) => route.abort());
+  await page.goto('/');
+  await page.getByRole('button', { name: /^11\/16 週一/ }).first().click();
+  await page.locator('[data-stop-id="d4-oishi"]').click();
+
+  const trip = JSON.parse(await readFile(file, 'utf8'));
+  trip.days[3].stops.find((stop: { id: string }) => stop.id === 'd4-chureito').notes = '代理剛寫的備註';
+  await writeFile(file, `${JSON.stringify(trip, null, 2)}\n`);
+
+  const cost = page.getByLabel('費用（全團）');
+  await cost.fill('4321');
+  await cost.press('Enter');
+  await expect(page.getByText(/沒有存到/)).toBeVisible();
+  await expect(page.getByText('代理剛寫的備註')).toBeVisible();
+  const saved = JSON.parse(await readFile(file, 'utf8'));
+  const stop = (id: string) => saved.days[3].stops.find((entry: { id: string }) => entry.id === id);
+  expect(stop('d4-chureito').notes).toBe('代理剛寫的備註');
+  expect(stop('d4-oishi').cost).toBe(0);
 });

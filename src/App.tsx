@@ -8,7 +8,13 @@ import { TripMap } from './TripMap.tsx';
 
 export type Selection = { date: string; stopId: string | null } | null;
 
-type TripResponse = { trip: Trip | null; error: string | null; unresolved: string[] };
+type TripResponse = {
+  trip: Trip | null;
+  version?: string;
+  coords?: Record<string, { lat: number; lng: number }>;
+  error: string | null;
+  unresolved: string[];
+};
 
 export function App() {
   return (
@@ -21,6 +27,7 @@ export function App() {
 function Board() {
   const [trip, setTrip] = useState<Trip | null>(null);
   const [unresolved, setUnresolved] = useState<string[]>([]);
+  const [coords, setCoords] = useState<NonNullable<TripResponse['coords']>>({});
   const [loadError, setLoadError] = useState('');
   const [viewDate, setViewDate] = useState('');
   const [selection, setSelection] = useState<Selection>(null);
@@ -28,6 +35,11 @@ function Board() {
   const [flash, setFlash] = useState<Set<string>>(new Set());
   const [notice, setNotice] = useState('');
   const tripRef = useRef<Trip | null>(null);
+  const versionRef = useRef('');
+  const loadSeq = useRef(0);
+  const saving = useRef<Promise<void>>(Promise.resolve());
+  const pendingSaves = useRef(0);
+  const reloadAfterSave = useRef(false);
   const tripId = trip?.id ?? '';
 
   const apply = useCallback((next: Trip) => {
@@ -37,8 +49,15 @@ function Board() {
 
   const load = useCallback(
     async (id: string) => {
+      const seq = ++loadSeq.current;
       const response = await fetch(`/api/trips/${encodeURIComponent(id)}`);
       const body = (await response.json()) as TripResponse;
+      if (seq !== loadSeq.current) return;
+      // Applying a newer version mid-save would make the queued save look current; load once the queue drains.
+      if (pendingSaves.current > 0) {
+        reloadAfterSave.current = true;
+        return;
+      }
       // A file caught mid-write comes back as { trip: null }; keep showing the last good trip.
       if (!body.trip) {
         if (!tripRef.current) setLoadError(body.error ?? '讀不到行程');
@@ -53,6 +72,8 @@ function Board() {
         }
       }
       setLoadError('');
+      versionRef.current = body.version ?? '';
+      setCoords(body.coords ?? {});
       setUnresolved(body.unresolved);
       apply(body.trip);
       setViewDate((date) => date || body.trip?.days[0]?.date || '');
@@ -81,27 +102,37 @@ function Board() {
     return () => events.close();
   }, [tripId, load]);
 
+  // Saves run one at a time against the version last read; a 409 means the agent wrote first, so reload its version.
   const save = useCallback(
-    async (next: Trip) => {
-      const previous = tripRef.current;
+    (next: Trip) => {
       apply(next);
       setNotice('');
-      try {
-        const response = await fetch(`/api/trips/${encodeURIComponent(next.id)}`, {
-          method: 'PUT',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ trip: next }),
-        });
-        if (!response.ok) {
-          const body = (await response.json().catch(() => ({}))) as { error?: string };
-          throw new Error(body.error ?? `HTTP ${response.status}`);
+      loadSeq.current++;
+      pendingSaves.current++;
+      saving.current = saving.current.then(async () => {
+        try {
+          const response = await fetch(`/api/trips/${encodeURIComponent(next.id)}`, {
+            method: 'PUT',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ trip: next, base: versionRef.current }),
+          });
+          const body = (await response.json().catch(() => ({}))) as { error?: string; version?: string };
+          if (!response.ok) throw new Error(body.error ?? `HTTP ${response.status}`);
+          versionRef.current = body.version ?? '';
+        } catch (error) {
+          setNotice(`沒有存到：${error instanceof Error ? error.message : String(error)}`);
+          reloadAfterSave.current = true;
+        } finally {
+          pendingSaves.current--;
         }
-      } catch (error) {
-        if (previous) apply(previous);
-        setNotice(`沒有存到：${error instanceof Error ? error.message : String(error)}`);
-      }
+        if (pendingSaves.current === 0 && reloadAfterSave.current) {
+          reloadAfterSave.current = false;
+          await load(next.id);
+        }
+      });
+      return saving.current;
     },
-    [apply],
+    [apply, load],
   );
 
   useEffect(() => {
@@ -120,19 +151,23 @@ function Board() {
     setSelection((current) => (current?.stopId === stopId ? null : { date, stopId }));
   }, []);
 
-  const selectedStop: Stop | null =
-    trip && selection?.stopId ? (findStop(trip, selection.stopId)?.stop ?? null) : null;
+  // A selected stop may have been moved or deleted since it was clicked; the trip decides its day.
+  const found = trip && selection?.stopId ? findStop(trip, selection.stopId) : null;
+  const selectedStop: Stop | null = found?.stop ?? null;
+  const selectedDay = found ? found.day.date : selection?.stopId ? '' : (selection?.date ?? '');
 
   const context = useMemo(
     () => ({
       file: `data/trips/${tripId}.json`,
       trip: tripId,
-      day: selection?.date ?? '',
-      stopId: selection?.stopId ?? '',
-      selection: selection ? JSON.stringify({ date: selection.date, stop: selectedStop }) : '',
+      day: selectedDay,
+      stopId: selectedStop?.id ?? '',
+      selection: selectedDay ? JSON.stringify({ date: selectedDay, stop: selectedStop }) : '',
     }),
-    [tripId, selection, selectedStop],
+    [tripId, selectedDay, selectedStop],
   );
+
+  const mapTrip = useMemo(() => (trip ? withCoords(trip, coords) : null), [trip, coords]);
 
   if (!trip) {
     return (
@@ -176,7 +211,7 @@ function Board() {
         onSelectStop={selectStop}
         onSave={save}
       />
-      <TripMap trip={trip} viewDate={viewDate} selectedStopId={selection?.stopId ?? null} onSelectStop={selectStop} />
+      <TripMap trip={mapTrip ?? trip} viewDate={viewDate} selectedStopId={selection?.stopId ?? null} onSelectStop={selectStop} />
       {dockOpen ? (
         <AgentDock
           trip={trip}
@@ -189,6 +224,16 @@ function Board() {
       ) : null}
     </div>
   );
+}
+
+function withCoords(trip: Trip, coords: NonNullable<TripResponse['coords']>): Trip {
+  return {
+    ...trip,
+    days: trip.days.map((day) => ({
+      ...day,
+      stops: day.stops.map((stop) => (coords[stop.id] ? { ...stop, ...coords[stop.id] } : stop)),
+    })),
+  };
 }
 
 function changedStops(previous: Trip, next: Trip): Set<string> {

@@ -70,22 +70,29 @@ export function AgentDock({ trip, selection, selectedStop, context, onClearSelec
   async function changeAgent(next: AgentMode) {
     if (next === agent) return;
     setSwitching(true);
-    await fetch('/api/agent', {
+    const response = await fetch('/api/agent', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ agent: next }),
-    }).catch(() => undefined);
+    }).catch(() => null);
+    if (!response?.ok) {
+      setSwitching(false);
+      return;
+    }
     window.setTimeout(() => window.location.reload(), 800);
   }
 
   async function respond(requestId: string, answer: Record<string, unknown>, label: string) {
     if (!panel.sessionId) return;
     setAnswered((current) => ({ ...current, [requestId]: label }));
-    await fetch(`/__agent/sessions/${panel.sessionId}/respond`, {
+    const response = await fetch(`/__agent/sessions/${panel.sessionId}/respond`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ requestId, ...answer }),
-    });
+    }).catch(() => null);
+    if (!response?.ok) {
+      setAnswered(({ [requestId]: _dropped, ...rest }) => rest);
+    }
   }
 
   function send() {

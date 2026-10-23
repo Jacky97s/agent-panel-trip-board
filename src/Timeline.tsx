@@ -258,7 +258,7 @@ function StopEditor({
   const [notes, setNotes] = useState(stop.notes);
   const [cost, setCost] = useState(String(stop.cost));
 
-  // Agent writes land while the card is open; follow them unless the user is mid-edit.
+  // Agent writes land while the card is open; show them in the fields.
   useEffect(() => setTime(stop.time), [stop.time]);
   useEffect(() => setPlace(stop.place), [stop.place]);
   useEffect(() => setNotes(stop.notes), [stop.notes]);
@@ -293,7 +293,8 @@ function StopEditor({
           onKeyDown={blurOnEnter}
           onBlur={() => {
             const next = place.trim();
-            if (next && next !== stop.place) onPatch({ place: next });
+            // A new place needs new coordinates, so the old pin must not stay behind.
+            if (next && next !== stop.place) onPatch({ place: next, lat: undefined, lng: undefined });
             else setPlace(stop.place);
           }}
         />
