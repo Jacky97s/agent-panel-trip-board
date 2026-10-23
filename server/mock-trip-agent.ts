@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { Readable, Writable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
@@ -133,13 +134,15 @@ async function readTrip(ctx: Ctx, sessionId: string, file: string): Promise<Trip
 
 async function writeTrip(ctx: Ctx, sessionId: string, file: string, trip: Trip): Promise<boolean> {
   const title = `寫入 data/trips/${trip.id}.json`;
+  // The panel merges tool rows by id, so each write needs its own.
+  const toolCallId = `write-trip-${randomUUID()}`;
   await ctx.client.notify(methods.client.session.update, {
     sessionId,
-    update: { sessionUpdate: 'tool_call', toolCallId: 'write-trip', title, name: 'write', kind: 'edit', status: 'pending', locations: [{ path: file }] },
+    update: { sessionUpdate: 'tool_call', toolCallId, title, name: 'write', kind: 'edit', status: 'pending', locations: [{ path: file }] },
   });
   const permission = await ctx.client.request(methods.client.session.requestPermission, {
     sessionId,
-    toolCall: { toolCallId: 'write-trip', title, name: 'write', kind: 'edit', status: 'pending', locations: [{ path: file }] },
+    toolCall: { toolCallId, title, name: 'write', kind: 'edit', status: 'pending', locations: [{ path: file }] },
     options: [
       { optionId: 'allow', name: '允許寫入', kind: 'allow_once' },
       { optionId: 'reject', name: '拒絕', kind: 'reject_once' },
@@ -154,7 +157,7 @@ async function writeTrip(ctx: Ctx, sessionId: string, file: string, trip: Trip):
   });
   await ctx.client.notify(methods.client.session.update, {
     sessionId,
-    update: { sessionUpdate: 'tool_call_update', toolCallId: 'write-trip', status: 'completed' },
+    update: { sessionUpdate: 'tool_call_update', toolCallId, status: 'completed' },
   });
   return true;
 }
@@ -162,7 +165,7 @@ async function writeTrip(ctx: Ctx, sessionId: string, file: string, trip: Trip):
 async function say(ctx: Ctx, sessionId: string, text: string) {
   await ctx.client.notify(methods.client.session.update, {
     sessionId,
-    update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text } },
+    update: { sessionUpdate: 'agent_message_chunk', messageId: randomUUID(), content: { type: 'text', text } },
   });
 }
 

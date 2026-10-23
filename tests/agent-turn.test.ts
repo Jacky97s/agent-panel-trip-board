@@ -4,7 +4,7 @@ import { type AgentApp, agent, methods } from '@agentclientprotocol/sdk';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createTripAgent } from '../server/mock-trip-agent.ts';
 import { parseTrip, type Trip } from '../shared/trip.ts';
-import { cleanup, openEvents, respond, send, session, start, tripContext, waitFor } from './harness.ts';
+import { cleanup, openEvents, poll, respond, send, session, start, tripContext, waitFor } from './harness.ts';
 
 afterEach(cleanup);
 
@@ -27,6 +27,23 @@ describe('trip mock agent over the real bridge', () => {
       expect(planned.stops[0]?.time >= '10:00').toBe(true);
       expect(planned.stops.find((stop) => stop.id === 'd3-dinner')?.time).toBe('18:30');
       expect(planned.stops.find((stop) => stop.id === 'd3-ryokan')).toBeDefined();
+    } finally {
+      await env.close();
+    }
+  });
+
+  it('gives every reply its own message id so a second turn shows up in the transcript', async () => {
+    const env = await start(createTripAgent());
+    try {
+      const events = await openEvents(env.base);
+      const id = await session(env.base);
+      await send(env.base, id, '你好', tripContext());
+      await waitFor(events, (event) => event.type === 'result');
+      await send(env.base, id, '你可以做什麼', tripContext());
+      await poll(() => (events.filter((event) => event.type === 'result').length === 2 ? true : undefined));
+      const ids = events.filter((event) => event.type === 'text').map((event) => event.messageId);
+      expect(ids).toHaveLength(2);
+      expect(new Set(ids).size).toBe(2);
     } finally {
       await env.close();
     }
