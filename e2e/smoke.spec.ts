@@ -19,12 +19,13 @@ async function times(page: Page) {
   return stops(page).locator('.time').allTextContents();
 }
 
-test('loads the trip with the dock closed and no subscription line in mock mode', async ({ page }) => {
+test('loads the trip with the dock closed and names the ACP demo peer in mock mode', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: '東京・箱根・河口湖 家族自駕五日' })).toBeVisible();
   await expect(page.getByText('11/13–11/17 · 5 天 · 5 位大人')).toBeVisible();
   await expect(dock(page)).toHaveCount(0);
   await openDock(page);
+  await expect(dock(page).getByText('agent-panel 透過 ACP 接上內建的示範 peer')).toBeVisible();
   await expect(page.getByText('額外 API 費用 $0')).toHaveCount(0);
 });
 

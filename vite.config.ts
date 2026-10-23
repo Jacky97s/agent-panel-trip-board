@@ -6,9 +6,10 @@ import { createAgentServer } from '@agent-panel/server';
 import react from '@vitejs/plugin-react';
 import type { Plugin, ViteDevServer } from 'vite';
 import { defineConfig } from 'vite';
-import { createApi, readAgentMode, type AgentMode } from './server/api.ts';
+import { createApi, readAgentMode } from './server/api.ts';
 import { createTripCapability } from './server/capability.ts';
 import { dataDir, tripsDir } from './server/paths.ts';
+import type { AgentMode } from './shared/agent-mode.ts';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 

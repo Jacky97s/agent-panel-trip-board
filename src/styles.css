@@ -544,7 +544,7 @@ button:disabled {
   border: 1px solid var(--surface-2);
 }
 
-.subscription {
+.connection {
   padding: 10px 16px;
   background: var(--ink);
   color: var(--bg);

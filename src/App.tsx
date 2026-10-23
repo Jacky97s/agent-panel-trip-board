@@ -214,8 +214,7 @@ function Board() {
       <TripMap trip={mapTrip ?? trip} viewDate={viewDate} selectedStopId={selection?.stopId ?? null} onSelectStop={selectStop} />
       {dockOpen ? (
         <AgentDock
-          trip={trip}
-          selection={selection}
+          day={trip.days.find((entry) => entry.date === selectedDay) ?? null}
           selectedStop={selectedStop}
           context={context}
           onClearSelection={() => setSelection(null)}

@@ -1,11 +1,10 @@
 import { useAgentState, useCapability } from '@agent-panel/react';
 import { useEffect, useRef, useState } from 'react';
-import type { Stop, Trip } from '../shared/trip.ts';
+import { AGENT_MODES, type AgentMode, usesOwnSubscription } from '../shared/agent-mode.ts';
+import type { Day, Stop } from '../shared/trip.ts';
 import { type Inline, parseAgentText } from './agent-text.ts';
-import type { Selection } from './App.tsx';
 import { dayLabel, shortDate } from './format.ts';
 
-type AgentMode = 'mock' | 'claude-code' | 'codex';
 type Item = ReturnType<typeof useAgentState>['items'][number];
 
 const AGENT_LABEL: Record<AgentMode, string> = {
@@ -22,20 +21,18 @@ const TOOL_STATUS: Record<string, string> = {
 };
 
 type Props = {
-  trip: Trip;
-  selection: Selection;
+  day: Day | null;
   selectedStop: Stop | null;
   context: Record<string, string>;
   onClearSelection: () => void;
   onClose: () => void;
 };
 
-export function AgentDock({ trip, selection, selectedStop, context, onClearSelection, onClose }: Props) {
+export function AgentDock({ day, selectedStop, context, onClearSelection, onClose }: Props) {
   const panel = useAgentState();
   const task = useCapability('trip');
   const [draft, setDraft] = useState('');
-  const [agent, setAgent] = useState<AgentMode>('mock');
-  const [subscription, setSubscription] = useState(false);
+  const [agent, setAgent] = useState<AgentMode | null>(null);
   const [switching, setSwitching] = useState(false);
   const [answered, setAnswered] = useState<Record<string, string>>({});
   const transcriptRef = useRef<HTMLDivElement>(null);
@@ -44,10 +41,7 @@ export function AgentDock({ trip, selection, selectedStop, context, onClearSelec
   useEffect(() => {
     void fetch('/api/agent')
       .then((response) => response.json())
-      .then((body: { agent: AgentMode; subscription: boolean }) => {
-        setAgent(body.agent);
-        setSubscription(body.subscription);
-      })
+      .then((body: { agent: AgentMode }) => setAgent(body.agent))
       .catch(() => undefined);
   }, []);
 
@@ -56,7 +50,6 @@ export function AgentDock({ trip, selection, selectedStop, context, onClearSelec
     if (node) node.scrollTop = node.scrollHeight;
   }, [panel.items.length, panel.items]);
 
-  const day = selection ? trip.days.find((entry) => entry.date === selection.date) : undefined;
   const chip = selectedStop ? selectedStop.place : day ? dayLabel(day) : '';
   const suggestions = selectedStop
     ? ['這裡換成溫泉']
@@ -117,11 +110,11 @@ export function AgentDock({ trip, selection, selectedStop, context, onClearSelec
         <h2>行程助理</h2>
         <select
           aria-label="代理"
-          value={agent}
-          disabled={switching || panel.running}
+          value={agent ?? 'mock'}
+          disabled={!agent || switching || panel.running}
           onChange={(event) => void changeAgent(event.target.value as AgentMode)}
         >
-          {(Object.keys(AGENT_LABEL) as AgentMode[]).map((mode) => (
+          {AGENT_MODES.map((mode) => (
             <option key={mode} value={mode}>
               {AGENT_LABEL[mode]}
             </option>
@@ -131,13 +124,20 @@ export function AgentDock({ trip, selection, selectedStop, context, onClearSelec
           收起
         </button>
       </header>
-      {subscription ? <p className="subscription">本次使用你自己的訂閱，額外 API 費用 $0</p> : null}
-      {switching ? <p className="subscription">正在切換代理，頁面即將重新載入。</p> : null}
+      {agent ? (
+        <p className="connection">
+          {switching
+            ? '正在切換代理，頁面即將重新載入。'
+            : usesOwnSubscription(agent)
+              ? `agent-panel 透過 ACP 接上你本機的 ${AGENT_LABEL[agent]}，用你自己的訂閱，額外 API 費用 $0。`
+              : 'agent-panel 透過 ACP 接上內建的示範 peer，不呼叫任何模型。'}
+        </p>
+      ) : null}
 
       <div className="transcript" ref={transcriptRef} aria-live="polite">
         {panel.items.length === 0 ? (
           <p className="intro">
-            選一天或一個行程再開口，助理只會改你選的地方。它只能寫入這趟行程的檔案，每次寫入前都會先問你。
+            先選一天或一個行程再開口。你選的東西會跟著訊息一起送給助理，它就知道要改哪裡。
           </p>
         ) : null}
         {panel.items.map((item) => (

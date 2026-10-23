@@ -4,17 +4,10 @@ import { watch } from 'node:fs';
 import fs from 'node:fs/promises';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import path from 'node:path';
+import { type AgentMode, isAgentMode } from '../shared/agent-mode.ts';
 import { type Trip, TRIP_ID, parseTrip } from '../shared/trip.ts';
-import { createGeocoder, type LatLng } from './geocode.ts';
+import { createGeocoder, type Geocoder, type LatLng } from './geocode.ts';
 import { agentModePath, tripPath, tripsDir } from './paths.ts';
-
-export type AgentMode = 'mock' | 'claude-code' | 'codex';
-
-const MODES: AgentMode[] = ['mock', 'claude-code', 'codex'];
-
-export function isAgentMode(value: string): value is AgentMode {
-  return (MODES as string[]).includes(value);
-}
 
 export async function readAgentMode(root: string): Promise<AgentMode> {
   try {
@@ -24,10 +17,6 @@ export async function readAgentMode(root: string): Promise<AgentMode> {
     // A missing mode file means the deterministic demo peer.
   }
   return 'mock';
-}
-
-export function showsSubscriptionNote(mode: AgentMode): boolean {
-  return mode === 'claude-code' || mode === 'codex';
 }
 
 class HttpError extends Error {
@@ -61,7 +50,7 @@ export function createApi(options: {
 type Context = {
   root: string;
   onAgentChange?: (mode: AgentMode) => void;
-  geocoder: ReturnType<typeof createGeocoder>;
+  geocoder: Geocoder;
   /** Emits a trip id when something other than a file write changes what GET returns (new coordinates). */
   changes: EventEmitter;
   /** Per-trip write chain, so a version check and its write never interleave with another save. */
@@ -107,7 +96,7 @@ async function handle(options: Context, url: URL, req: IncomingMessage, res: Ser
 
   if (url.pathname === '/api/agent' && method === 'GET') {
     const agent = await readAgentMode(root);
-    json(res, 200, { agent, subscription: showsSubscriptionNote(agent) });
+    json(res, 200, { agent });
     return;
   }
   if (url.pathname === '/api/agent' && method === 'POST') {
@@ -116,7 +105,7 @@ async function handle(options: Context, url: URL, req: IncomingMessage, res: Ser
     if (!isAgentMode(agent)) throw new HttpError(400, '未知的代理');
     await fs.mkdir(root, { recursive: true });
     await fs.writeFile(agentModePath(root), `${JSON.stringify({ agent }, null, 2)}\n`);
-    json(res, 200, { agent, subscription: showsSubscriptionNote(agent), restarting: true });
+    json(res, 200, { agent, restarting: true });
     options.onAgentChange?.(agent);
     return;
   }
