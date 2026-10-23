@@ -42,6 +42,11 @@ export function Timeline({ trip, viewDate, selection, unresolved, flash, notice,
     listRef.current?.querySelector<HTMLElement>(`[data-stop-id="${CSS.escape(id)}"]`)?.focus();
   });
 
+  const selectedId = selection?.stopId;
+  useEffect(() => {
+    if (selectedId) listRef.current?.querySelector(`[data-stop-id="${CSS.escape(selectedId)}"]`)?.scrollIntoView({ block: 'nearest' });
+  }, [selectedId]);
+
   if (!day) return <section className="reading" />;
   const daySelected = selection?.date === day.date && !selection.stopId;
   const cost = dayCost(day);
@@ -74,7 +79,7 @@ export function Timeline({ trip, viewDate, selection, unresolved, flash, notice,
             onDrop={(event) => dropTo(event, entry.date, Number.MAX_SAFE_INTEGER)}
           >
             <span className="day-date">
-              {shortDate(entry.date)} {weekday(entry.date)}
+              {shortDate(entry.date)} <span className="day-weekday">{weekday(entry.date)}</span>
             </span>
             <span className="day-title">{entry.title || '未命名'}</span>
           </button>
@@ -268,7 +273,9 @@ function StopEditor({
       <label className="field field-time">
         <span>時間</span>
         <input
-          type="time"
+          inputMode="numeric"
+          maxLength={5}
+          placeholder="HH:mm"
           value={time}
           onChange={(event) => setTime(event.target.value)}
           onKeyDown={blurOnEnter}

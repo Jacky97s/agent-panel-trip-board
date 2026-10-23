@@ -86,7 +86,7 @@ button:disabled {
 }
 
 .primary:disabled {
-  background: var(--surface-2);
+  background: var(--surface);
   color: var(--muted);
   opacity: 1;
 }
@@ -384,7 +384,6 @@ button:disabled {
   background: var(--ink);
   color: var(--bg);
   cursor: default;
-  box-shadow: none;
 }
 
 .stop.is-selected .meta,
@@ -459,7 +458,6 @@ button:disabled {
   font-size: 24px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  color-scheme: dark;
 }
 
 .field-place input {
@@ -481,6 +479,7 @@ button:disabled {
 
 .map {
   grid-area: map;
+  font-family: var(--text);
   min-height: 0;
   background: var(--surface-2);
 }
@@ -749,7 +748,7 @@ button:disabled {
 @media (max-width: 819px) {
   .app,
   .app.is-docked {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto 42svh minmax(0, 1fr);
     grid-template-areas:
       'top'
@@ -768,10 +767,37 @@ button:disabled {
     font-size: 22px;
   }
 
+  .money {
+    flex-wrap: wrap;
+    gap: 0 12px;
+  }
+
+  .assistant-toggle {
+    margin-left: 0;
+  }
+
   .days {
-    grid-template-columns: repeat(5, minmax(92px, 1fr));
-    overflow-x: auto;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     padding-inline: 16px;
+  }
+
+  .day-button {
+    padding: 8px 6px;
+  }
+
+  .day-button .day-date {
+    white-space: normal;
+    font-size: 14px;
+    line-height: 1.25;
+  }
+
+  .day-button .day-title {
+    display: none;
+  }
+
+  .day-weekday {
+    display: block;
+    font-weight: 400;
   }
 
   .day-scroll {
